@@ -1,0 +1,99 @@
+
+
+1.
+
+%sql
+-- here i create a mapping table view for currency column so that i can easily connect with the fact_table and do comparison in the inr rates.
+
+-- Create a view for fixed FX rates as of 2025-10-15 as per RBI rates
+
+CREATE OR REPLACE VIEW ecommerce.gold.gld_fx_rates_view AS
+SELECT currency, inr_rate, effective_date
+FROM VALUES
+  ('INR', 1.00, DATE '2025-10-15'),
+  ('AED', 24.18, DATE '2025-10-15'),
+  ('AUD', 57.55, DATE '2025-10-15'),
+  ('CAD', 62.93, DATE '2025-10-15'),
+  ('GBP', 117.98, DATE '2025-10-15'),
+  ('SGD', 68.18, DATE '2025-10-15'),
+  ('USD', 88.29, DATE '2025-10-15')
+AS fx_rates(currency, inr_rate, effective_date);
+
+----------------------------------------------------------
+
+2. join [order] and [gld_fx_rates_view] and create view:
+
+%sql
+CREATE OR REPLACE VIEW ecommerce.gold.gld_order_items AS
+
+select 
+order_id,dates,order_timestamp,
+customer_id,cust_id_integrity_flag,
+item_seq,product_id,
+quantity,unit_price_currency,unit_price,inr_rate,discount_pct,tax_amount,tax_flag,
+quantity*unit_price*inr_rate*(1-discount_pct) as Total_revenue_INR,
+quantity*unit_price*inr_rate as Gross_revenue_INR,
+channel,coupon_code
+from ecommerce.silver.slv_order_items as o
+left join ecommerce.gold.gld_fx_rates_view as m on m.currency = o.unit_price_currency
+
+------------------------------------------------------------
+
+3. Final Denormalised Table for analysis and dashboarding :
+
+%sql
+-- denormalised data for dashborading analysis
+
+CREATE OR REPLACE VIEW ecommerce.gold.gld_denormalised_order_items AS
+select
+o.dates
+,order_timestamp
+,o.customer_id
+,cust_id_integrity_flag
+,order_id
+,item_seq
+,o.product_id
+,quantity
+,unit_price_currency
+,unit_price
+,inr_rate
+,discount_pct
+,tax_amount
+,tax_flag
+,Total_revenue_INR
+,Gross_revenue_INR
+,channel
+,coupon_code
+,sku
+,category_code
+,category_name
+,brand_code
+,brand_name
+,color
+,size
+,material
+,weight_grams
+,length_cm
+,width_cm
+,height_cm
+,rating_clean
+,country_code
+,country
+,state_code
+,regions
+,phone
+,year
+,day_name
+,quarters
+,week_of_year
+from ecommerce.gold.gld_order_items as o
+left join ecommerce.gold.gld_products as p on p.product_id = o.product_id
+left join ecommerce.gold.gld_customers as c on c.customer_id = o.customer_id
+left join ecommerce.gold.gld_dates as d on d.dates = o.dates
+
+
+
+
+
+
+
