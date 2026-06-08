@@ -1,0 +1,146 @@
+
+
+1. --[slv_brand_code] Table:
+
+%sql
+CREATE OR REPLACE TABLE ecommerce.silver.slv_brand_code
+USING DELTA
+AS
+select brand_code,brand_name,category_code
+from(
+select 
+lower(trim(regexp_replace(brand_code, '[^A-Za-z0-9 ]', '') )) as brand_code,
+lower(trim(brand_name)) as brand_name,
+lower(trim(category_code)) as category_code,
+row_number()over(partition by brand_code order by brand_code) as rnk
+from ecommerce.bronze.brz_brands
+where brand_code is not null
+)A
+where rnk=1
+;
+---------------------------------------------------------
+
+2. --[slv_Category] Table:
+
+
+%sql
+CREATE OR REPLACE TABLE ecommerce.silver.slv_category
+USING DELTA
+AS
+select category_code,category_name
+from(
+select 
+upper(trim(category_code)) as category_code,
+upper(trim(category_name)) as category_name,
+row_number()over(partition by category_code order by category_code) as rnk
+from ecommerce.bronze.brz_category
+where category_code is not null
+)A
+where rnk = 1;
+------------------------------------------------------------
+
+3. --[slv_customers] Table:
+
+%sql
+
+CREATE OR REPLACE TABLE ecommerce.silver.slv_customers
+USING DELTA
+AS
+select customer_id,phone,country_code,country,state
+from(
+select 
+trim(customer_id) as customer_id,
+coalesce( replace(left( phone, 12),'.' ),'not_available' ) as phone,
+coalesce ((country_code),'not_available') as country_code,
+coalesce ((country), 'not_available') as country,
+coalesce ((state),'not_available') as state,
+row_number()over(partition by customer_id order by customer_id) as rnk
+from ecommerce.bronze.brz_customers
+where customer_id is not null
+)A
+where rnk = 1;
+
+---------------------------------------------------------------
+
+4. --[slv_dates] Table:
+
+
+%sql
+CREATE OR REPLACE TABLE ecommerce.silver.slv_dates
+USING DELTA
+AS
+select dates,year,day_name,quarters,week_of_year
+from(
+select 
+TO_DATE(date, 'dd-MM-yyyy') AS dates,
+cast(year as int) as year,
+DATE_FORMAT(TO_DATE(date, 'dd-MM-yyyy'), 'EEEE') AS day_name,
+cast(quarter as tinyint) quarters,
+WEEKOFYEAR(TO_DATE(date, 'dd-MM-yyyy')) AS week_of_year,
+row_number()over(partition by date order by date) as rnk
+from ecommerce.bronze.brz_date
+)A
+where rnk = 1;
+
+-------------------------------------------------------------------
+
+5. --[slv_products] Table:
+
+%sql
+CREATE OR REPLACE TABLE ecommerce.silver.slv_products
+USING DELTA
+AS
+select 
+product_id,
+sku,
+category_code,
+brand_code,
+color,
+size,
+material,
+weight_grams,
+length_cm,
+width_cm,
+height_cm,
+rating_clean
+from(
+select 
+trim(product_id) as product_id,
+trim(sku) as sku,
+trim(category_code) as category_code,
+trim(brand_code) as brand_code,
+coalesce(trim(color), 'unknown') as color,
+trim(size) as size,
+
+    CASE trim(material)
+        WHEN 'Coton'   THEN 'Cotton'
+        WHEN 'Ruber'   THEN 'Rubber'
+        WHEN 'Alumium' THEN 'Aluminium'  
+        ELSE material
+    END AS material,
+
+abs(CAST(REGEXP_REPLACE((trim(weight_grams)), '[^0-9]', '') AS INT)) as weight_grams ,
+cast(replace(trim(length_cm),',','.' ) as decimal(10,2)) as length_cm,
+cast(trim(width_cm) as decimal(4,2)) as width_cm,
+cast(trim(height_cm) as decimal(4,2)) as height_cm,
+
+    CASE 
+        WHEN TRY_CAST(TRIM(rating_count) AS DECIMAL(3,1)) < 0 THEN 0
+        WHEN TRY_CAST(TRIM(rating_count) AS DECIMAL(3,1)) > 5 THEN 5
+        ELSE TRY_CAST(TRIM(rating_count) AS DECIMAL(3,1))
+    END AS rating_clean,
+row_number()over(partition by product_id order by product_id) as rnk
+
+from ecommerce.bronze.brz_products
+where trim(product_id) is not null
+)A
+where rnk = 1
+;
+
+
+
+
+
+
+
+
