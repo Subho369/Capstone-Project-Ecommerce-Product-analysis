@@ -1,0 +1,94 @@
+
+-- 1. Combine dim_tables [slv_products, slv_brand_code, slv_category]
+
+%sql
+
+create or replace view ecommerce.gold.gld_products
+as
+select 
+product_id,
+sku,
+p.category_code,
+lower(c.category_name) as category_name,
+p.brand_code,
+brand_name,
+color,
+size,
+material,
+weight_grams,
+length_cm,
+width_cm,
+height_cm,
+rating_clean
+
+from ecommerce.silver.slv_products as p
+left join ecommerce.silver.slv_brand_code as b on b.brand_code = p.brand_code
+left join ecommerce.silver.slv_category as c on c.category_code = upper(p.category_code)
+
+;
+
+-----------------------------------------------------------------
+
+-- 2. Code for mapping of Region based on the [country] and [state] existing columns 
+
+%sql
+CREATE OR REPLACE TABLE ecommerce.silver.slv_country_state_map (
+    country varchar(100),
+    state_code varchar(30),
+    region VARCHAR(30)
+);
+
+INSERT INTO ecommerce.silver.slv_country_state_map VALUES
+-- India
+('India','MH','West'), ('India','GJ','West'), ('India','RJ','West'),
+('India','KA','South'), ('India','TN','South'), ('India','TS','South'),
+('India','AP','South'), ('India','KL','South'),
+('India','UP','North'), ('India','WB','North'), ('India','DL','North'),
+
+-- Australia
+('Australia','VIC','SouthEast'), ('Australia','WA','West'),
+('Australia','NSW','East'), ('Australia','QLD','NorthEast'),
+
+-- UK
+('United Kingdom','ENG','England'), ('United Kingdom','WLS','Wales'),
+('United Kingdom','NIR','Northern Ireland'), ('United Kingdom','SCT','Scotland'),
+
+-- US
+('United States','MA','NorthEast'), ('United States','FL','South'),
+('United States','NJ','NorthEast'), ('United States','CA','West'),
+('United States','NY','NorthEast'), ('United States','TX','South'),
+
+-- UAE
+('United Arab Emirates','AUH','Abu Dhabi'), ('United Arab Emirates','DU','Dubai'),
+('United Arab Emirates','SHJ','Sharjah'),
+
+-- Singapore
+('Singapore','SG','Singapore'),
+
+-- Canada
+('Canada','BC','West'), ('Canada','AB','West'), ('Canada','ON','East'),
+('Canada','QC','East'), ('Canada','NS','East'), ('Canada','IL','Other');
+
+-------------------------------------------------------------------------------------
+
+--3 join [customers] and [country_state_map] based on the [m.country = c.country and m.state_code=c.state]
+
+%sql
+create or replace view ecommerce.gold.gld_customers
+as
+select customer_id,country_code,
+coalesce(c.country,'not_available') as country,
+coalesce(state_code) as state_code ,
+coalesce(region,'not_available') as regions,
+coalesce(phone,'not_available') as phone
+from ecommerce.silver.slv_customers as c
+left join  ecommerce.silver.slv_country_state_map as m on m.country = c.country and m.state_code=c.state
+
+
+-----------------------------------------------------------------------------------------
+
+
+
+
+
+
