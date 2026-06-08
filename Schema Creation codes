@@ -1,0 +1,19 @@
+Schema Creation codes:
+
+1. 
+%sql
+CREATE CATALOG IF NOT EXISTS ECOMMERCE;
+
+2.
+%sql
+use catalog ECOMMERCE;
+
+3.
+%sql
+CREATE SCHEMA IF NOT EXISTS ecommerce.bronze;
+CREATE SCHEMA IF NOT EXISTS ecommerce.silver;
+CREATE SCHEMA IF NOT EXISTS ecommerce.gold;
+
+4.
+%sql
+CREATE SCHEMA IF NOT EXISTS ecommerce.RAW_DATA;
