@@ -1,0 +1,56 @@
+
+-- Fact Table [Orders] clean and transformation code
+
+%sql
+
+CREATE OR REPLACE TABLE ecommerce.silver.slv_order_items
+USING DELTA
+AS
+with fact_order_tab as(
+select 
+cast(trim(dt) as date) as dates,
+cast( trim(order_ts) as timestamp) as order_timestamp,
+trim(customer_id)as customer_id,
+trim(order_id) as order_id,
+cast(trim(item_seq) as varchar(10)) as item_seq,
+product_id,
+cast(replace(quantity,'Two','2') as int) as quantity,
+trim(unit_price_currency) as unit_price_currency,
+cast(replace(unit_price, '$','') as int) as unit_price,
+cast(replace(discount_pct, '%','')/100 as decimal(4,2)) as discount_pct,
+TRY_CAST(tax_amount AS DECIMAL(12,2)) as tax_amount,
+trim(channel) as channel,
+trim(coupon_code) as coupon_code
+
+from ecommerce.bronze.brz_order_items
+),
+
+refrential_integrity_check as (          -- fact_table returns those customers which are not present in the dim_table.
+
+select trim(customer_id) as customer_id
+from ecommerce.bronze.brz_order_items
+except
+select trim(customer_id) as customer_id
+from ecommerce.bronze.brz_customers
+)
+
+select dates,order_timestamp
+,
+o.customer_id,
+case when r.customer_id is null then 'valid' else 'invalid' end as cust_id_integrity_flag,
+
+order_id, item_seq, product_id, quantity, unit_price_currency, unit_price, discount_pct,
+
+tax_amount,
+case
+when tax_amount<0 then 'red'
+when tax_amount > (0.5* unit_price * quantity) then 'red'
+else 'green' end as tax_flag
+,
+channel,coupon_code
+
+from fact_order_tab as o
+left join refrential_integrity_check as r on r.customer_id = o.customer_id          -- join table so that i create flag of refrential_integrity_check.
+;
+
+
